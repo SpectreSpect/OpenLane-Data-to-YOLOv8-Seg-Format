@@ -1,4 +1,4 @@
-path: /kaggle/input/im-close-dataset/data4
+path: /kaggle/input/open-lane-for-yolov8/yolov8
 train: images/train
 val: images/train
 
