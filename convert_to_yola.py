@@ -225,4 +225,4 @@ def convert_dataset_to_yolo(dataset_path, output_path, max_items_count=-1):
 
 
 if __name__ == "__main__":
-    convert_dataset_to_yolo("data/openlane", "/media/spectre/74DCDE42DCDDFE74/Torrent/yolov8_small-10", max_items_count=10)
+    convert_dataset_to_yolo("data/openlane", "/media/spectre/74DCDE42DCDDFE74/Torrent/yolov8_medium-1000", max_items_count=1000)
