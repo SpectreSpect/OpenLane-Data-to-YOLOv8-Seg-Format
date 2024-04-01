@@ -37,6 +37,7 @@ def get_lane_line(json_file, line_idx) -> dict:
     label = category[int(json_file["lane_lines"][line_idx]["category"])]
     u = json_file["lane_lines"][line_idx]["uv"][0]
     v = json_file["lane_lines"][line_idx]["uv"][1]
+    
     return {"label": label,
             "u": u,
             "v": v,
@@ -50,7 +51,16 @@ def get_lane_lines(path: str) -> list:
     
     lines = []
     for line_id in range(lines_count):
-        lines.append(get_lane_line(json_file, line_id))
+        line = get_lane_line(json_file, line_id)
+        
+        if len(line['u']) != len(line['v']) or len(line['u']) < 3:
+            # if len(line['u']) != len(line['v']):
+            #     print("len(u) and len(v) were not equal")
+            # else:
+            #     print("len(u) or len(v) were less then 3")
+            continue
+        
+        lines.append(line)
     
     return lines
 
@@ -225,4 +235,4 @@ def convert_dataset_to_yolo(dataset_path, output_path, max_items_count=-1):
 
 
 if __name__ == "__main__":
-    convert_dataset_to_yolo("data/openlane", "/media/spectre/74DCDE42DCDDFE74/Torrent/yolov8_medium-1000", max_items_count=1000)
+    convert_dataset_to_yolo("data/openlane", "/media/spectre/74DCDE42DCDDFE74/Torrent/yolov8_medium-1000_2", max_items_count=1000)

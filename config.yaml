@@ -1,4 +1,4 @@
-path: /kaggle/input/yolov8-medium-1000-2/yolov8_medium-1000
+path: /kaggle/input/yolov8-medium-1000-3/yolov8_medium-1000_2
 train: images/train
 val: images/train
 
