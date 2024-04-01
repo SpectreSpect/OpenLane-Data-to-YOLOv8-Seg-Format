@@ -1,4 +1,4 @@
-path: /kaggle/input/open-lane-for-yolov8/yolov8
+path: /kaggle/input/yolov8-small-10/yolov8_small-10
 train: images/train
 val: images/train
 
