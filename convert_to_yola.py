@@ -197,8 +197,9 @@ def convert_dataset_to_yolo(dataset_path, output_path, max_items_count=-1):
 
     start = timer()
     for idx, item_name in enumerate(available_segment_names):
-        if left_items_count <= 0:
-            break
+        if max_items_count >= 0:
+            if left_items_count <= 0:
+                break
         
         # if max_segments_count >= 0:
         #     if idx >= max_segments_count:
@@ -235,4 +236,4 @@ def convert_dataset_to_yolo(dataset_path, output_path, max_items_count=-1):
 
 
 if __name__ == "__main__":
-    convert_dataset_to_yolo("data/openlane", "/media/spectre/74DCDE42DCDDFE74/Torrent/yolov8_medium-1000_2", max_items_count=1000)
+    convert_dataset_to_yolo("data/openlane", "/media/spectre/74DCDE42DCDDFE74/Games/openlane-conv-to-yolov8n-seg")
