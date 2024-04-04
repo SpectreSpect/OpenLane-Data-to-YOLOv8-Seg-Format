@@ -167,18 +167,34 @@ def copy_files(source_path, target_path, max_items=-1, avalible_file_names=None)
                     break
             shutil.copy(file_path, target_path)
             idx += 1
-    
 
 
-def convert_dataset_to_yolo(dataset_path, output_path, max_items_count=-1):
+def count_files(path: str) -> int:
+    files_count = 0
+    for filename in os.listdir(path):
+        filepath = os.path.join(path, filename)
+        if os.path.isfile(filepath):
+            files_count += 1
+        elif os.path.isdir(filepath):
+            files_count += count_files(filepath)
+    return files_count
+
+
+def convert_dataset_to_yolo(dataset_path, output_path, max_items_count=-1, validation_split=0):
     if not os.path.exists(output_path):
         os.makedirs(output_path)
         
     if not os.path.exists(output_path + "/labels/train/"):
         os.makedirs(output_path + "/labels/train/")
+        
+    if not os.path.exists(output_path + "/labels/train/"):
+        os.makedirs(output_path + "/labels/valid/")
     
     if not os.path.exists(output_path + "/images/train/"):
         os.makedirs(output_path + "/images/train/")
+    
+    if not os.path.exists(output_path + "/images/train/"):
+        os.makedirs(output_path + "/images/valid/")
     
     labels_path = dataset_path + "/labels/"
     images_path = dataset_path + "/images/"
@@ -194,16 +210,17 @@ def convert_dataset_to_yolo(dataset_path, output_path, max_items_count=-1):
     
     labels_target_path = os.path.join(output_path, 'labels', 'train')
     images_target_path = os.path.join(output_path, 'images', 'train')
+    
+    valid_labels_target_path = os.path.join(output_path, 'labels', 'valid')
+    valid_images_target_path = os.path.join(output_path, 'images', 'valid')
+    
+    train_split = 1.0 - validation_split
 
     start = timer()
     for idx, item_name in enumerate(available_segment_names):
         if max_items_count >= 0:
             if left_items_count <= 0:
                 break
-        
-        # if max_segments_count >= 0:
-        #     if idx >= max_segments_count:
-        #         break
         
         label_segment_path = os.path.join(labels_path, item_name)
         image_segment_path = os.path.join(images_path, item_name)
@@ -233,7 +250,30 @@ def convert_dataset_to_yolo(dataset_path, output_path, max_items_count=-1):
                 print(f"segments: {converted_segments_count}/{segments_count}   items: {converted_items_count}/{max_items_count}    "
                       f"eta: {float_seconds_to_time_str(eta, 2)}    "
                       f"elapsed: {float_seconds_to_time_str(elapsed_time, 2)}")
+    
+    # train_items_count = converted_items_count * train_split
+    valid_items_count = valid_items_count * validation_split
+    
+    copy_files(labels_target_path, valid_labels_target_path, max_items=valid_items_count)
+    copy_files(images_target_path, valid_images_target_path, max_items=valid_items_count)
+    
+    train_labels_count = count_files(labels_target_path)
+    valid_labels_count = count_files(valid_labels_target_path)
+    
+    train_images_count = count_files(images_target_path)
+    valid_images_count = count_files(valid_images_target_path)
+    
+    total_files_count = train_labels_count + valid_labels_count + train_images_count + valid_images_count
+    
+    print(f"Total files count: {total_files_count}  {(total_files_count / float(total_files_count)) * 100.0}%")
+    
+    print(f"Train labels count: {train_labels_count}  {(total_files_count / float(train_labels_count)) * 100.0}%")
+    print(f"Train images count: {train_labels_count}  {(total_files_count / float(train_images_count)) * 100.0}%")
+    
+    print(f"Valid labels count: {valid_labels_count}  {(total_files_count / float(valid_labels_count)) * 100.0}%")
+    print(f"Valid images count: {valid_labels_count}  {(total_files_count / float(valid_images_count)) * 100.0}%")
 
 
 if __name__ == "__main__":
-    convert_dataset_to_yolo("data/openlane", "/media/spectre/74DCDE42DCDDFE74/Games/openlane-conv-to-yolov8n-seg")
+    print(count_files("/home/spectre/ProgramFiles/Freedom/LearningProjects/OpenLane/data/openlane/labels"))
+    # convert_dataset_to_yolo("data/openlane", "/media/spectre/74DCDE42DCDDFE74/Games/openlane-conv-to-yolov8n-seg")
