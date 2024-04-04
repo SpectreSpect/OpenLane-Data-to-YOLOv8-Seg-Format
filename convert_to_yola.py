@@ -152,6 +152,8 @@ def get_file_names(path: str, remove_extension=False) -> list:
 
 def copy_files(source_path, target_path, max_items=-1, avalible_file_names=None):
     
+    copied_file_names = []
+    
     idx = 0
     for file_name in os.listdir(source_path):
         
@@ -165,8 +167,34 @@ def copy_files(source_path, target_path, max_items=-1, avalible_file_names=None)
             if max_items >= 0:
                 if idx >= max_items:
                     break
+            copied_file_names.append(file_path) 
             shutil.copy(file_path, target_path)
             idx += 1
+    return copied_file_names
+
+
+def delete_files(paths: str):
+    for path in paths:
+        os.remove(path)
+
+
+def move_files_old(source_path, target_path, max_items=-1, avalible_file_names=None):
+    paths = copy_files(source_path, target_path, max_items=max_items, avalible_file_names=avalible_file_names)
+    delete_files(paths)
+
+
+def move_files(source_path, target_path, max_items=-1):
+    if os.path.isdir(target_path):
+        idx = 0
+        for image_name in os.listdir(source_path):
+            full_source_path = os.path.join(source_path, image_name)
+            if os.path.isfile(full_source_path):
+                if max_items >= 0:
+                    if idx >= max_items:
+                        break
+                shutil.move(full_source_path, target_path)
+                print(f"moved: {idx}/{max_items}    path: {full_source_path}")
+                idx += 1
 
 
 def count_files(path: str) -> int:
@@ -180,6 +208,7 @@ def count_files(path: str) -> int:
     return files_count
 
 
+
 def convert_dataset_to_yolo(dataset_path, output_path, max_items_count=-1, validation_split=0):
     if not os.path.exists(output_path):
         os.makedirs(output_path)
@@ -187,13 +216,13 @@ def convert_dataset_to_yolo(dataset_path, output_path, max_items_count=-1, valid
     if not os.path.exists(output_path + "/labels/train/"):
         os.makedirs(output_path + "/labels/train/")
         
-    if not os.path.exists(output_path + "/labels/train/"):
+    if not os.path.exists(output_path + "/labels/valid/"):
         os.makedirs(output_path + "/labels/valid/")
     
     if not os.path.exists(output_path + "/images/train/"):
         os.makedirs(output_path + "/images/train/")
     
-    if not os.path.exists(output_path + "/images/train/"):
+    if not os.path.exists(output_path + "/images/valid/"):
         os.makedirs(output_path + "/images/valid/")
     
     labels_path = dataset_path + "/labels/"
@@ -252,10 +281,19 @@ def convert_dataset_to_yolo(dataset_path, output_path, max_items_count=-1, valid
                       f"elapsed: {float_seconds_to_time_str(elapsed_time, 2)}")
     
     # train_items_count = converted_items_count * train_split
-    valid_items_count = valid_items_count * validation_split
+    valid_items_count = int(converted_items_count * validation_split)
     
-    copy_files(labels_target_path, valid_labels_target_path, max_items=valid_items_count)
-    copy_files(images_target_path, valid_images_target_path, max_items=valid_items_count)
+    
+    train_labels_count0 = count_files(labels_target_path)
+    valid_labels_count0 = count_files(valid_labels_target_path)
+    
+    train_images_count0 = count_files(images_target_path)
+    valid_images_count0 = count_files(valid_images_target_path)
+    
+    print("AAAAAAAAAAAAAAA")
+    move_files(labels_target_path, valid_labels_target_path, max_items=valid_items_count)
+    print("BBBBBBBBBBBBBBBBBBB")
+    move_files(images_target_path, valid_images_target_path, max_items=valid_items_count)
     
     train_labels_count = count_files(labels_target_path)
     valid_labels_count = count_files(valid_labels_target_path)
@@ -263,17 +301,18 @@ def convert_dataset_to_yolo(dataset_path, output_path, max_items_count=-1, valid
     train_images_count = count_files(images_target_path)
     valid_images_count = count_files(valid_images_target_path)
     
-    total_files_count = train_labels_count + valid_labels_count + train_images_count + valid_images_count
+    total_images_count = train_images_count + valid_images_count
+    total_labels_count = train_labels_count + valid_labels_count
     
-    print(f"Total files count: {total_files_count}  {(total_files_count / float(total_files_count)) * 100.0}%")
+    print(f"Total images count: {total_images_count}  {(float(total_images_count) / total_images_count)}")
     
-    print(f"Train labels count: {train_labels_count}  {(total_files_count / float(train_labels_count)) * 100.0}%")
-    print(f"Train images count: {train_labels_count}  {(total_files_count / float(train_images_count)) * 100.0}%")
+    print(f"Train labels count: {train_labels_count}  {(float(train_labels_count) / total_labels_count)}")
+    print(f"Train images count: {train_images_count}  {(float(train_images_count) / total_images_count)}")
     
-    print(f"Valid labels count: {valid_labels_count}  {(total_files_count / float(valid_labels_count)) * 100.0}%")
-    print(f"Valid images count: {valid_labels_count}  {(total_files_count / float(valid_images_count)) * 100.0}%")
+    print(f"Valid labels count: {valid_labels_count}  {(float(valid_labels_count) / total_labels_count)}")
+    print(f"Valid images count: {valid_images_count}  {(float(valid_images_count) / total_images_count)}")
 
 
 if __name__ == "__main__":
-    print(count_files("/home/spectre/ProgramFiles/Freedom/LearningProjects/OpenLane/data/openlane/labels"))
-    # convert_dataset_to_yolo("data/openlane", "/media/spectre/74DCDE42DCDDFE74/Games/openlane-conv-to-yolov8n-seg")
+    # print(count_files("/home/spectre/ProgramFiles/Freedom/LearningProjects/OpenLane/data/openlane/labels"))
+    convert_dataset_to_yolo("data/openlane", "/media/spectre/74DCDE42DCDDFE74/Games/data/openlane-full-val-split-02_v11", validation_split=0.2)
