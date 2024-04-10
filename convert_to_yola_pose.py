@@ -2,6 +2,8 @@ import json
 import os
 import shutil
 from timeit import default_timer as timer
+import src.utils as utils
+import sys
 
 
 category = {
@@ -33,15 +35,64 @@ def float_seconds_to_time_str(seconds, decimal_places_to_round_to):
     return time
 
 
+min_points_count = sys.maxsize
+max_points_count = 0
+mean_points_count = 0
+total_lines_count = 0
+
 def get_lane_line(json_file, line_idx) -> dict:
     label = category[int(json_file["lane_lines"][line_idx]["category"])]
     u = json_file["lane_lines"][line_idx]["uv"][0]
     v = json_file["lane_lines"][line_idx]["uv"][1]
+
+    global min_points_count
+    global max_points_count
+    global mean_points_count
+    global total_lines_count
+    total_lines_count += 1
+    min_points_count = min(min_points_count, len(u))
+    max_points_count = max(max_points_count, len(u))
+    mean_points_count += len(u)
+    # print(max_points_count)
     
     return {"label": label,
             "u": u,
             "v": v,
             "points_count": len(u)}
+
+
+def get_bounding_box(line):
+    bounding_box = dict()
+
+    bounding_box["label"] = line["label"]
+
+    bounding_box["u"] = (min(line["u"]) + max(line["u"])) / 2.0
+    bounding_box["v"] = (min(line["v"]) + max(line["v"])) / 2.0
+
+    bounding_box["width"] = max(line["u"]) - min(line["u"])
+    bounding_box["height"] = max(line["v"]) - min(line["v"])
+
+    return bounding_box
+
+
+def get_normalized_bounding_box(line: dict, shape=[1920.0, 1280.0]) -> dict:
+    bounding_box = dict()
+
+    bounding_box["label"] = line["label"]
+
+    u_min = min(line["u"]) / shape[0]
+    u_max = max(line["u"]) / shape[0]
+
+    v_min = min(line["v"]) / shape[1]
+    v_max = max(line["v"]) / shape[1]
+
+    bounding_box["u"] = (u_min + u_max) / 2.0
+    bounding_box["v"] = (v_min + v_max) / 2.0
+
+    bounding_box["width"] = u_max - u_min
+    bounding_box["height"] = v_max - v_min
+
+    return bounding_box
 
 
 def get_lane_lines(path: str) -> list:
@@ -65,14 +116,18 @@ def get_lane_lines(path: str) -> list:
     return lines
 
 
-# Perhaps the coordinates should be normalized. DONE
 
 def convert_label_file_to_yolo(label_file_path, output_path):
     lines = get_lane_lines(label_file_path)
     
     output_string = ""
     for line in lines:
-        output_string += str(line['label']) + " "
+        bounding_box = get_normalized_bounding_box(line)
+
+        output_string += str(line['label']) + " " # May be an error
+        output_string += str(bounding_box['u']) + " " + str(bounding_box['v']) + " " # May be an error
+        output_string += str(bounding_box["width"]) + " " + str(bounding_box["height"]) + " " # May be an error
+
         for point_idx in range(line['points_count']):
             
             u = line["u"][point_idx] / 1920.0
@@ -261,8 +316,6 @@ def convert_dataset_to_yolo(dataset_path, output_path, max_items_count=-1, valid
             available_file_names = set(label_names) & set(image_names)
             
             if len(available_file_names) > 0:
-                
-                
                 converted_file_names = convert_segment_to_yolo(label_segment_path, labels_target_path, 
                                                                avalible_file_names=available_file_names, max_items=left_items_count)
                 copy_files(image_segment_path, images_target_path, avalible_file_names=converted_file_names)
@@ -313,6 +366,18 @@ def convert_dataset_to_yolo(dataset_path, output_path, max_items_count=-1, valid
     print(f"Valid images count: {valid_images_count}  {(float(valid_images_count) / total_images_count)}")
 
 
+
 if __name__ == "__main__":
+    max_points_count = 0
     # print(count_files("/home/spectre/ProgramFiles/Freedom/LearningProjects/OpenLane/data/openlane/labels"))
-    convert_dataset_to_yolo("data/openlane", "/media/spectre/74DCDE42DCDDFE74/Games/data/openlane-full-val-split-02_v11", validation_split=0.2)
+    convert_dataset_to_yolo("data/openlane", 
+                            "data/yolov8_medium-full-pose-TEMP",
+                            validation_split=0.2)
+    print(f"Total lines: {total_lines_count}")
+    print(f"Min points: {min_points_count}")
+    print(f"Max points: {max_points_count}")
+    print(f"Mean points: {mean_points_count / float(total_lines_count)}")
+
+
+    # total_points_count
+    
