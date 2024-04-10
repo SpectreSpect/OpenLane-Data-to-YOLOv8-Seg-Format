@@ -153,22 +153,31 @@ def generate_palette(values_dict: dict):
 if __name__ == "__main__":
     # 150889472233113100
     
-    image = cv2.imread("data/yolov8_medium-2000-pose/images/train/151547756261951300.jpg")
-    lines, bounding_boxes = get_pose_lane_lines("data/yolov8_medium-2000-pose/labels/train/151547756261951300.txt")
-    utils.simplify_lines(lines)
+    image = cv2.imread("data/yolov8_medium-500-pose-simplified-v13/images/train/155321858734451400.jpg")
+    lines, bounding_boxes = get_pose_lane_lines("data/yolov8_medium-500-pose-simplified-v13/labels/train/155321858734451400.txt")
+    # utils.simplify_lines(lines, tolerance=0.008)
 
 
     palette = generate_palette(category_dict)
 
     draw_lane_lines(image, lines, palette)
+    line_id = 1
+    print(lines[line_id].points.shape[0])
+    offset = 0
+    # draw_curve(image, lines[line_id].points[0:2], radius=2, thickness=1)
+    # draw_curve(image, lines[line_id].points[1:3], color=(0, 255, 255), radius=2, thickness=1)
+
+    # draw_curve(image, lines[line_id].points, radius=2, thickness=1)
+    
     # draw_bounding_boxes(image, bounding_boxes, palette)
 
     # draw_bounding_box(image, bounding_boxes[0])
 
 
 
-    
+    zoom_region = image[700:850, 300:800]
 
+    # cv2.imshow('Image', cv2.resize(zoom_region, None, fx=3, fy=3))
     cv2.imshow('Image', cv2.resize(image, None, fx=0.5, fy=0.5))
     cv2.waitKey(0)
     cv2.destroyAllWindows()

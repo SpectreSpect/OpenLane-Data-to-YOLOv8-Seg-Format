@@ -4,6 +4,7 @@ import shutil
 from timeit import default_timer as timer
 import src.utils as utils
 import sys
+import numpy as np
 
 
 category = {
@@ -40,25 +41,72 @@ max_points_count = 0
 mean_points_count = 0
 total_lines_count = 0
 
-def get_lane_line(json_file, line_idx) -> dict:
+
+min_points_count_simplified = sys.maxsize
+max_points_count_simplified = 0
+mean_points_count_simplified = 0
+total_lines_count_simplified = 0
+
+shape_more_then_30 = 0
+shape_less_then_30 = 0
+
+max_points_count_simplified_old = 0
+max_path = ""
+
+def get_lane_line(json_file, line_idx, shape=(1.0, 1.0)) -> dict:
     label = category[int(json_file["lane_lines"][line_idx]["category"])]
-    u = json_file["lane_lines"][line_idx]["uv"][0]
-    v = json_file["lane_lines"][line_idx]["uv"][1]
+    u = np.array(json_file["lane_lines"][line_idx]["uv"][0])
+    v = np.array(json_file["lane_lines"][line_idx]["uv"][1])
+
+    u /= shape[0]
+    v /= shape[1]
+
+    if len(u) != len(v):
+        return None
+
+    points = np.column_stack((u, v))
 
     global min_points_count
     global max_points_count
     global mean_points_count
     global total_lines_count
+
+    
     total_lines_count += 1
     min_points_count = min(min_points_count, len(u))
     max_points_count = max(max_points_count, len(u))
     mean_points_count += len(u)
-    # print(max_points_count)
     
-    return {"label": label,
-            "u": u,
-            "v": v,
-            "points_count": len(u)}
+
+    lane_line = utils.LaneLine(points, label)
+    utils.simplify_line(lane_line)
+
+    global min_points_count_simplified
+    global max_points_count_simplified
+    global mean_points_count_simplified
+    global total_lines_count_simplified
+    global max_points_count_simplified_old
+    global shape_more_then_30
+    global shape_less_then_30
+
+    max_points_count_simplified_old = max_points_count_simplified
+
+    total_lines_count_simplified += 1
+    min_points_count_simplified = min(min_points_count_simplified, lane_line.points.shape[0])
+
+    # if lane_line.points.shape[0] > max_points_count:
+    #     max_points_count_simplified = lane_line.points.shape[0]
+
+    max_points_count_simplified = max(max_points_count_simplified, lane_line.points.shape[0])
+    mean_points_count_simplified += lane_line.points.shape[0]
+
+    if (lane_line.points.shape[0] > 30):
+        shape_more_then_30 += 1
+    
+    if (lane_line.points.shape[0] <= 30):
+        shape_less_then_30 += 1
+
+    return lane_line
 
 
 def get_bounding_box(line):
@@ -75,16 +123,19 @@ def get_bounding_box(line):
     return bounding_box
 
 
-def get_normalized_bounding_box(line: dict, shape=[1920.0, 1280.0]) -> dict:
+def get_normalized_bounding_box(line: utils.LaneLine, shape=[1920.0, 1280.0]) -> dict:
     bounding_box = dict()
 
-    bounding_box["label"] = line["label"]
+    bounding_box["label"] = line.label
 
-    u_min = min(line["u"]) / shape[0]
-    u_max = max(line["u"]) / shape[0]
+    u = line.points[:, 0]
+    v = line.points[:, 1]
 
-    v_min = min(line["v"]) / shape[1]
-    v_max = max(line["v"]) / shape[1]
+    u_min = min(u) / shape[0]
+    u_max = max(u) / shape[0]
+
+    v_min = min(v) / shape[1]
+    v_max = max(v) / shape[1]
 
     bounding_box["u"] = (u_min + u_max) / 2.0
     bounding_box["v"] = (v_min + v_max) / 2.0
@@ -94,23 +145,28 @@ def get_normalized_bounding_box(line: dict, shape=[1920.0, 1280.0]) -> dict:
 
     return bounding_box
 
+max_points_count_simplified_test = 0
 
-def get_lane_lines(path: str) -> list:
+def get_lane_lines(path: str, verbose=1, shape=(1.0, 1.0)) -> list:
     file = open(path)
     json_file = json.load(file)
     lines_count = len(json_file['lane_lines'])
     
     lines = []
     for line_id in range(lines_count):
-        line = get_lane_line(json_file, line_id)
-        
-        if len(line['u']) != len(line['v']) or len(line['u']) < 3:
-            # if len(line['u']) != len(line['v']):
-            #     print("len(u) and len(v) were not equal")
-            # else:
-            #     print("len(u) or len(v) were less then 3")
+        line = get_lane_line(json_file, line_id, shape=shape)
+
+        if max_points_count_simplified_old != max_points_count_simplified:
+            global max_path
+            global max_points_count_simplified_test
+            max_path = path
+            max_points_count_simplified_test = max_points_count_simplified
+
+        if line == None:
+            if verbose == 1:
+                print(f"\033[91mFound corrupt line, id: {0}\033[0m")
             continue
-        
+
         lines.append(line)
     
     return lines
@@ -118,22 +174,27 @@ def get_lane_lines(path: str) -> list:
 
 
 def convert_label_file_to_yolo(label_file_path, output_path):
-    lines = get_lane_lines(label_file_path)
+    lines = get_lane_lines(label_file_path, shape=(1920.0, 1280.0))
     
     output_string = ""
     for line in lines:
         bounding_box = get_normalized_bounding_box(line)
 
-        output_string += str(line['label']) + " " # May be an error
+        output_string += str(line.label) + " " # May be an error
         output_string += str(bounding_box['u']) + " " + str(bounding_box['v']) + " " # May be an error
         output_string += str(bounding_box["width"]) + " " + str(bounding_box["height"]) + " " # May be an error
 
-        for point_idx in range(line['points_count']):
-            
-            u = line["u"][point_idx] / 1920.0
-            v = line["v"][point_idx] / 1280.0
-            
-            output_string += str(u) + " " + str(v) + " " # may be an error (swap u and v). Also the last space may cause an error.
+        # line.points[:, 0] /= 1920.0
+        # line.points[:, 1] /= 1280.0
+
+        u = line.points[:, 0]
+        v = line.points[:, 1]
+
+        for point_idx in range(line.points.shape[0]): # may be an error
+            # u = line["u"][point_idx] / 1920.0
+            # v = line["v"][point_idx] / 1280.0
+
+            output_string += str(u[point_idx]) + " " + str(v[point_idx]) + " "
         output_string += "\n"
     
     with open(output_path, "w") as out:
@@ -368,16 +429,24 @@ def convert_dataset_to_yolo(dataset_path, output_path, max_items_count=-1, valid
 
 
 if __name__ == "__main__":
-    max_points_count = 0
-    # print(count_files("/home/spectre/ProgramFiles/Freedom/LearningProjects/OpenLane/data/openlane/labels"))
-    convert_dataset_to_yolo("data/openlane", 
-                            "data/yolov8_medium-full-pose-TEMP",
-                            validation_split=0.2)
-    print(f"Total lines: {total_lines_count}")
-    print(f"Min points: {min_points_count}")
-    print(f"Max points: {max_points_count}")
-    print(f"Mean points: {mean_points_count / float(total_lines_count)}")
+    
 
+    # max_points_count = 0
+    # # print(count_files("/home/spectre/ProgramFiles/Freedom/LearningProjects/OpenLane/data/openlane/labels"))
+    convert_dataset_to_yolo("data/openlane", 
+                            "data/yolov8_medium-500-pose-simplified-v14",
+                            validation_split=0.2, max_items_count=500)
+    print(f"Total lines (full, simpl): ({total_lines_count}, {total_lines_count_simplified})")
+    print(f"Min points (full, simpl): ({min_points_count}, {min_points_count_simplified})")
+    print(f"Max points (full, simpl): ({max_points_count}, {max_points_count_simplified})")
+    print(f"Mean points (full, simpl): ({mean_points_count / float(total_lines_count)}, {mean_points_count_simplified / float(total_lines_count_simplified)})")
+
+    print(f"shape_more_then_30: {shape_more_then_30 / float(total_lines_count)}")
+    print(f"shape_less_then_30: {shape_less_then_30 / float(total_lines_count)}")
+
+
+    print(f"Max path: {max_path}")
+    print(f"Max test: {max_points_count_simplified_test}")
 
     # total_points_count
     
