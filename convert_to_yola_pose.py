@@ -36,23 +36,6 @@ def float_seconds_to_time_str(seconds, decimal_places_to_round_to):
     return time
 
 
-min_points_count = sys.maxsize
-max_points_count = 0
-mean_points_count = 0
-total_lines_count = 0
-
-
-min_points_count_simplified = sys.maxsize
-max_points_count_simplified = 0
-mean_points_count_simplified = 0
-total_lines_count_simplified = 0
-
-shape_more_then_30 = 0
-shape_less_then_30 = 0
-
-max_points_count_simplified_old = 0
-max_path = ""
-
 def get_lane_line(json_file, line_idx, shape=(1.0, 1.0)) -> dict:
     label = category[int(json_file["lane_lines"][line_idx]["category"])]
     u = np.array(json_file["lane_lines"][line_idx]["uv"][0])
@@ -66,45 +49,8 @@ def get_lane_line(json_file, line_idx, shape=(1.0, 1.0)) -> dict:
 
     points = np.column_stack((u, v))
 
-    global min_points_count
-    global max_points_count
-    global mean_points_count
-    global total_lines_count
-
-    
-    total_lines_count += 1
-    min_points_count = min(min_points_count, len(u))
-    max_points_count = max(max_points_count, len(u))
-    mean_points_count += len(u)
-    
-
     lane_line = utils.LaneLine(points, label)
-    utils.simplify_line(lane_line)
-
-    global min_points_count_simplified
-    global max_points_count_simplified
-    global mean_points_count_simplified
-    global total_lines_count_simplified
-    global max_points_count_simplified_old
-    global shape_more_then_30
-    global shape_less_then_30
-
-    max_points_count_simplified_old = max_points_count_simplified
-
-    total_lines_count_simplified += 1
-    min_points_count_simplified = min(min_points_count_simplified, lane_line.points.shape[0])
-
-    # if lane_line.points.shape[0] > max_points_count:
-    #     max_points_count_simplified = lane_line.points.shape[0]
-
-    max_points_count_simplified = max(max_points_count_simplified, lane_line.points.shape[0])
-    mean_points_count_simplified += lane_line.points.shape[0]
-
-    if (lane_line.points.shape[0] > 30):
-        shape_more_then_30 += 1
-    
-    if (lane_line.points.shape[0] <= 30):
-        shape_less_then_30 += 1
+    # utils.simplify_line(lane_line)
 
     return lane_line
 
@@ -145,7 +91,6 @@ def get_normalized_bounding_box(line: utils.LaneLine, shape=[1920.0, 1280.0]) ->
 
     return bounding_box
 
-max_points_count_simplified_test = 0
 
 def get_lane_lines(path: str, verbose=1, shape=(1.0, 1.0)) -> list:
     file = open(path)
@@ -155,12 +100,6 @@ def get_lane_lines(path: str, verbose=1, shape=(1.0, 1.0)) -> list:
     lines = []
     for line_id in range(lines_count):
         line = get_lane_line(json_file, line_id, shape=shape)
-
-        if max_points_count_simplified_old != max_points_count_simplified:
-            global max_path
-            global max_points_count_simplified_test
-            max_path = path
-            max_points_count_simplified_test = max_points_count_simplified
 
         if line == None:
             if verbose == 1:
@@ -184,16 +123,10 @@ def convert_label_file_to_yolo(label_file_path, output_path):
         output_string += str(bounding_box['u']) + " " + str(bounding_box['v']) + " " # May be an error
         output_string += str(bounding_box["width"]) + " " + str(bounding_box["height"]) + " " # May be an error
 
-        # line.points[:, 0] /= 1920.0
-        # line.points[:, 1] /= 1280.0
-
         u = line.points[:, 0]
         v = line.points[:, 1]
 
         for point_idx in range(line.points.shape[0]): # may be an error
-            # u = line["u"][point_idx] / 1920.0
-            # v = line["v"][point_idx] / 1280.0
-
             output_string += str(u[point_idx]) + " " + str(v[point_idx]) + " "
         output_string += "\n"
     
@@ -201,7 +134,38 @@ def convert_label_file_to_yolo(label_file_path, output_path):
         out.write(output_string)
 
 
-def convert_segment_to_yolo(segment_path, output_path, max_items=-1, avalible_file_names=None) -> list:
+def get_mask(line: utils.LaneLine):
+    return
+
+
+
+def convert_label_file_to_yolo_mask(label_file_path, output_path):
+    shape = (1920, 1280)
+
+    lines = get_lane_lines(label_file_path, shape=shape)
+    
+    output_string = ""
+    for line in lines:
+        # bounding_box = get_normalized_bounding_box(line)
+
+        output_string += str(line.label) + " " # May be an error
+        # output_string += str(bounding_box['u']) + " " + str(bounding_box['v']) + " " # May be an error
+        # output_string += str(bounding_box["width"]) + " " + str(bounding_box["height"]) + " " # May be an error
+
+        poitns = utils.SegMask.from_line_to_mask(line, shape=shape, tolerance=0.0015)
+
+        u = poitns[:, 0]
+        v = poitns[:, 1]
+
+        for point_idx in range(poitns.shape[0]): # may be an error
+            output_string += str(u[point_idx]) + " " + str(v[point_idx]) + " "
+        output_string += "\n"
+    
+    with open(output_path, "w") as out:
+        out.write(output_string)
+
+
+def convert_segment_to_yolo(segment_path, output_path, format, max_items=-1, avalible_file_names=None) -> list:
     if not os.path.exists(output_path):
         os.makedirs(output_path)
     
@@ -222,13 +186,17 @@ def convert_segment_to_yolo(segment_path, output_path, max_items=-1, avalible_fi
             if max_items >= 0:
                 if idx >= max_items:
                     break
-            convert_label_file_to_yolo(original_file_path, yolo_file_path)
+            
+            if format == 'mask':
+                convert_label_file_to_yolo_mask(original_file_path, yolo_file_path)
+            elif format == 'pose':
+                convert_label_file_to_yolo(original_file_path, yolo_file_path)
             converted_file_names.append(filename)
             idx += 1
     return converted_file_names
 
 
-def convert_labels_to_yolo(labels_path, output_path):
+def convert_labels_to_yolo(labels_path, output_path, format):
     if not os.path.exists(output_path):
         os.makedirs(output_path)
     for item_name in os.listdir(labels_path):
@@ -236,7 +204,7 @@ def convert_labels_to_yolo(labels_path, output_path):
         output_segment_path = os.path.join(output_path, item_name)
         
         if os.path.isdir(full_path):
-            convert_segment_to_yolo(full_path, output_segment_path)
+            convert_segment_to_yolo(full_path, output_segment_path, format)
 
 
 def copy_images(segment_path, images_target_path, max_items=-1):
@@ -325,7 +293,12 @@ def count_files(path: str) -> int:
 
 
 
-def convert_dataset_to_yolo(dataset_path, output_path, max_items_count=-1, validation_split=0):
+def convert_dataset_to_yolo(dataset_path, output_path, format, max_items_count=-1, validation_split=0, 
+                            clear_output_folder=False):
+    if clear_output_folder:
+        if os.path.exists(output_path):
+            shutil.rmtree(output_path)
+
     if not os.path.exists(output_path):
         os.makedirs(output_path)
         
@@ -357,9 +330,7 @@ def convert_dataset_to_yolo(dataset_path, output_path, max_items_count=-1, valid
     images_target_path = os.path.join(output_path, 'images', 'train')
     
     valid_labels_target_path = os.path.join(output_path, 'labels', 'valid')
-    valid_images_target_path = os.path.join(output_path, 'images', 'valid')
-    
-    train_split = 1.0 - validation_split
+    valid_images_target_path = os.path.join(output_path, 'images', 'valid')   
 
     start = timer()
     for idx, item_name in enumerate(available_segment_names):
@@ -377,8 +348,10 @@ def convert_dataset_to_yolo(dataset_path, output_path, max_items_count=-1, valid
             available_file_names = set(label_names) & set(image_names)
             
             if len(available_file_names) > 0:
-                converted_file_names = convert_segment_to_yolo(label_segment_path, labels_target_path, 
-                                                               avalible_file_names=available_file_names, max_items=left_items_count)
+
+                converted_file_names = convert_segment_to_yolo(label_segment_path, labels_target_path, format,
+                                                               avalible_file_names=available_file_names, 
+                                                               max_items=left_items_count)
                 copy_files(image_segment_path, images_target_path, avalible_file_names=converted_file_names)
                 converted_segments_count += 1
                 converted_items_count += len(converted_file_names)
@@ -394,59 +367,16 @@ def convert_dataset_to_yolo(dataset_path, output_path, max_items_count=-1, valid
                       f"eta: {float_seconds_to_time_str(eta, 2)}    "
                       f"elapsed: {float_seconds_to_time_str(elapsed_time, 2)}")
     
-    # train_items_count = converted_items_count * train_split
     valid_items_count = int(converted_items_count * validation_split)
     
-    
-    train_labels_count0 = count_files(labels_target_path)
-    valid_labels_count0 = count_files(valid_labels_target_path)
-    
-    train_images_count0 = count_files(images_target_path)
-    valid_images_count0 = count_files(valid_images_target_path)
-    
-    print("AAAAAAAAAAAAAAA")
     move_files(labels_target_path, valid_labels_target_path, max_items=valid_items_count)
-    print("BBBBBBBBBBBBBBBBBBB")
     move_files(images_target_path, valid_images_target_path, max_items=valid_items_count)
     
-    train_labels_count = count_files(labels_target_path)
-    valid_labels_count = count_files(valid_labels_target_path)
-    
-    train_images_count = count_files(images_target_path)
-    valid_images_count = count_files(valid_images_target_path)
-    
-    total_images_count = train_images_count + valid_images_count
-    total_labels_count = train_labels_count + valid_labels_count
-    
-    print(f"Total images count: {total_images_count}  {(float(total_images_count) / total_images_count)}")
-    
-    print(f"Train labels count: {train_labels_count}  {(float(train_labels_count) / total_labels_count)}")
-    print(f"Train images count: {train_images_count}  {(float(train_images_count) / total_images_count)}")
-    
-    print(f"Valid labels count: {valid_labels_count}  {(float(valid_labels_count) / total_labels_count)}")
-    print(f"Valid images count: {valid_images_count}  {(float(valid_images_count) / total_images_count)}")
-
-
 
 if __name__ == "__main__":
-    
-
-    # max_points_count = 0
-    # # print(count_files("/home/spectre/ProgramFiles/Freedom/LearningProjects/OpenLane/data/openlane/labels"))
     convert_dataset_to_yolo("data/openlane", 
-                            "data/yolov8_medium-500-pose-simplified-v14",
-                            validation_split=0.2, max_items_count=500)
-    print(f"Total lines (full, simpl): ({total_lines_count}, {total_lines_count_simplified})")
-    print(f"Min points (full, simpl): ({min_points_count}, {min_points_count_simplified})")
-    print(f"Max points (full, simpl): ({max_points_count}, {max_points_count_simplified})")
-    print(f"Mean points (full, simpl): ({mean_points_count / float(total_lines_count)}, {mean_points_count_simplified / float(total_lines_count_simplified)})")
-
-    print(f"shape_more_then_30: {shape_more_then_30 / float(total_lines_count)}")
-    print(f"shape_less_then_30: {shape_less_then_30 / float(total_lines_count)}")
-
-
-    print(f"Max path: {max_path}")
-    print(f"Max test: {max_points_count_simplified_test}")
-
-    # total_points_count
-    
+                            "data/yolov8_medium-500-masks",
+                            'mask',
+                            validation_split=0.2, 
+                            max_items_count=500,
+                            clear_output_folder=True)

@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 import random
-from shapely.geometry import LineString
+from shapely.geometry import LineString, Polygon
 import src.utils as utils
 
 
@@ -149,21 +149,44 @@ def generate_palette(values_dict: dict):
     return palette
 
 
+def draw_mask_from_lines(image, lines, palette, thickness=-1):
+    for line in lines:
+        counter = (line.points * np.array([image.shape[1], image.shape[0]])).astype(int)
+        cv2.drawContours(image, [counter], -1, palette[line.label], thickness)
+
+
+def simplify_counter(line: utils.LaneLine, tolerance=0.008):
+    line.points = Polygon(line.points).simplify(tolerance, preserve_topology=True)
+    line.points = np.array(line.points.exterior.coords)
+
+
+def simplify_counters(lines, tolerance=0.008):
+    for line in lines:
+        simplify_counter(line, tolerance)
+
 
 if __name__ == "__main__":
-    # 150889472233113100
+    # 151094287281236800
     
-    image = cv2.imread("data/yolov8_medium-500-pose-simplified-v13/images/train/155321858734451400.jpg")
-    lines, bounding_boxes = get_pose_lane_lines("data/yolov8_medium-500-pose-simplified-v13/labels/train/155321858734451400.txt")
+    image = cv2.imread("data/yolov8_medium-500-masks/images/train/151163701004979800.jpg")
+    lines, bounding_boxes = get_pose_lane_lines("data/yolov8_medium-500-masks/labels/train/151163701004979800.txt")
+    # simplify_counters(lines, 0.0015)
     # utils.simplify_lines(lines, tolerance=0.008)
 
+    # counters = np.array(counters)
+
+    # counter = (lines[0].points * np.array([image.shape[1], image.shape[0]])).astype(int)
+
+    # cv2.drawContours(image, [counter], -1, (0, 0, 255), -1)
 
     palette = generate_palette(category_dict)
+    draw_mask_from_lines(image, lines, palette)
+    # palette = generate_palette(category_dict)
+    # draw_lane_lines(image, lines, palette)
 
-    draw_lane_lines(image, lines, palette)
-    line_id = 1
-    print(lines[line_id].points.shape[0])
-    offset = 0
+    # line_id = 1
+    # print(lines[line_id].points.shape[0])
+    # offset = 0
     # draw_curve(image, lines[line_id].points[0:2], radius=2, thickness=1)
     # draw_curve(image, lines[line_id].points[1:3], color=(0, 255, 255), radius=2, thickness=1)
 
@@ -175,23 +198,9 @@ if __name__ == "__main__":
 
 
 
-    zoom_region = image[700:850, 300:800]
+    # zoom_region = image[700:850, 300:800]
 
     # cv2.imshow('Image', cv2.resize(zoom_region, None, fx=3, fy=3))
     cv2.imshow('Image', cv2.resize(image, None, fx=0.5, fy=0.5))
     cv2.waitKey(0)
     cv2.destroyAllWindows()
-
-
-    # idx = 2
-    # print(len(lines))
-    # print(lines[idx]['nxy'].shape)
-    # simplify_lines(lines)
-    # print(lines[idx]['nxy'].shape)
-
-    # line = LineString([[0, 0], [1, 1], [2, 2], [3, 3], [4, 4], [5, 5]])
-    # simplified_line = line.simplify(1.0)
-
-    # # Print the original and simplified lines
-    # print(f"Original line: {list(line.coords)}")
-    # print(f"Simplified line: {list(simplified_line.coords)}")
