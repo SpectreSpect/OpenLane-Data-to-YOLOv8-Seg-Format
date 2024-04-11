@@ -1,4 +1,4 @@
-path: /kaggle/input/openlane-conv-to-yolov8n-seg/openlane-conv-to-yolov8n-seg
+path: /kaggle/input/yolov8-size1000-val02-fmasks/yolov8-size1000-val02-fmasks
 train: images/train
 val: images/train
 

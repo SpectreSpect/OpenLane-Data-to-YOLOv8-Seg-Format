@@ -375,8 +375,7 @@ def convert_dataset_to_yolo(dataset_path, output_path, format, max_items_count=-
 
 if __name__ == "__main__":
     convert_dataset_to_yolo("data/openlane", 
-                            "data/yolov8_medium-500-masks",
+                            "data/yolov8-sizefull-val02-fmasks",
                             'mask',
-                            validation_split=0.2, 
-                            max_items_count=500,
+                            validation_split=0.2,
                             clear_output_folder=True)
