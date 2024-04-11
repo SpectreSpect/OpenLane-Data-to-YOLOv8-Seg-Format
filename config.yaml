@@ -1,4 +1,4 @@
-path: /kaggle/input/yolov8-size1000-val02-fmasks/yolov8-size1000-val02-fmasks
+path: /kaggle/input/yolov8-sizefull-val02-fmasks/yolov8-sizefull-val02-fmasks
 train: images/train
 val: images/train
 
