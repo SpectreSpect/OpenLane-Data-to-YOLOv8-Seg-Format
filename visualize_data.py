@@ -40,11 +40,6 @@ def draw_curve(image, points, color=(0, 0, 255), thickness=2, radius=6):
             cv2.circle(image, (pt2x, pt2y), radius, color, -1)
 
 
-# def get_lane_lines(path: str) -> dict:
-#     with open(path, "r") as file:
-#         for line in file.readlines():
-
-
 def get_lane_lines(path):
     lane_lines = []
     with open(path, "r") as file:
@@ -66,7 +61,6 @@ def get_lane_lines(path):
                 ny = float(coords[idx + 1])
                 nxy.append([nx, ny])
             
-            # lane_line = {"nxy": np.array(nxy), "category": category}
             lane_line = utils.LaneLine(np.array(nxy), category)
             lane_lines.append(lane_line)
     return lane_lines
@@ -104,7 +98,6 @@ def get_pose_lane_lines(path: str):
                 ny = float(coords[idx + 1])
                 nxy.append([nx, ny])
             
-            # lane_line = {"nxy": np.array(nxy), "category": category}
             lane_line = utils.LaneLine(np.array(nxy), category)
             lane_lines.append(lane_line)
     return lane_lines, bounding_boxes
@@ -127,13 +120,8 @@ def draw_bounding_box(image, bounding_box, color=(0, 0, 255), thickness=2):
     top_left = [int(top_left_u * image.shape[1]), int(top_left_v * image.shape[0])]
     bottom_right = [int(bottom_right_u * image.shape[1]), int(bottom_right_v * image.shape[0])]
 
-    # cv2.circle(image, top_left, 10, (0, 255, 0), thickness=-1)
-    # cv2.circle(image, top_left, 10, (0, 255, 0), thickness=-1)
-    # cv2.circle(image, bottom_right, 10, (0, 255, 0), thickness=-1)
-
     cv2.rectangle(image, top_left, bottom_right, color, thickness)
 
-    
 
 def draw_bounding_boxes(image, bounding_boxes, palette):
     for bounding_box in bounding_boxes:
@@ -166,41 +154,13 @@ def simplify_counters(lines, tolerance=0.008):
 
 
 if __name__ == "__main__":
-    # 151094287281236800
-    
     image = cv2.imread("data/yolov8_medium-500-masks/images/train/151163701004979800.jpg")
     lines, bounding_boxes = get_pose_lane_lines("data/yolov8_medium-500-masks/labels/train/151163701004979800.txt")
-    # simplify_counters(lines, 0.0015)
-    # utils.simplify_lines(lines, tolerance=0.008)
-
-    # counters = np.array(counters)
-
-    # counter = (lines[0].points * np.array([image.shape[1], image.shape[0]])).astype(int)
-
-    # cv2.drawContours(image, [counter], -1, (0, 0, 255), -1)
-
     palette = generate_palette(category_dict)
     draw_mask_from_lines(image, lines, palette)
     # palette = generate_palette(category_dict)
     # draw_lane_lines(image, lines, palette)
 
-    # line_id = 1
-    # print(lines[line_id].points.shape[0])
-    # offset = 0
-    # draw_curve(image, lines[line_id].points[0:2], radius=2, thickness=1)
-    # draw_curve(image, lines[line_id].points[1:3], color=(0, 255, 255), radius=2, thickness=1)
-
-    # draw_curve(image, lines[line_id].points, radius=2, thickness=1)
-    
-    # draw_bounding_boxes(image, bounding_boxes, palette)
-
-    # draw_bounding_box(image, bounding_boxes[0])
-
-
-
-    # zoom_region = image[700:850, 300:800]
-
-    # cv2.imshow('Image', cv2.resize(zoom_region, None, fx=3, fy=3))
     cv2.imshow('Image', cv2.resize(image, None, fx=0.5, fy=0.5))
     cv2.waitKey(0)
     cv2.destroyAllWindows()

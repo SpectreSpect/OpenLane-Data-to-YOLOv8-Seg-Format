@@ -1,6 +1,8 @@
 import cv2
 import numpy as np
+
 from skimage.morphology import skeletonize
+
 from timeit import default_timer as timer
 import math
 
